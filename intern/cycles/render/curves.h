@@ -65,12 +65,18 @@ public:
 
 	array<int> psys_firstcurve;
 	array<int> psys_curvenum;
+    // One shader for a whole particle system
 	array<int> psys_shader;
 
 	array<float> psys_rootradius;
 	array<float> psys_tipradius;
 	array<float> psys_shape;
 	array<bool> psys_closetip;
+    
+    array<bool> render_as_hair;
+    array<bool> use_curve_radii;
+    // One shader per spline using its material_index
+    array<int> curve_shader;
 
 	array<int> curve_firstkey;
 	array<int> curve_keynum;
@@ -80,6 +86,7 @@ public:
 
 	array<float3> curvekey_co;
 	array<float> curvekey_time;
+    array<float> curvekey_radius;
 };
 
 /* HairSystem Manager */

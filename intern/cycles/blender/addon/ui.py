@@ -1275,6 +1275,31 @@ class CYCLES_OBJECT_PT_cycles_settings_performance(CyclesButtonsPanel, Panel):
         col = flow.column()
         col.active = scene.render.use_simplify and cscene.use_distance_cull
         col.prop(cob, "use_distance_cull")
+        
+
+class CYCLES_CURVE_PT_hair_settings(CyclesButtonsPanel, Panel):
+    bl_label = "Render curve as hair"
+    bl_context = "data"
+    #bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        ob = context.object
+        return CyclesButtonsPanel.poll(context) and ob is not None and ob.type == 'CURVE'
+
+    def draw_header(self, context):
+        ob = context.object
+        self.layout.prop(ob.data.cycles_curves, "render_as_hair", text="Render as hair")
+
+    def draw(self, context):
+        layout = self.layout
+        ob = context.object
+        cc = ob.data.cycles_curves
+        layout.active = cc.render_as_hair
+        # [Nicolas Antille] Todo: add options for modifying hair radii if necessary
+        cc.use_curve_radii = True
+        #row = layout.row()
+        #row.prop(cc, "use_curve_radii", text="Use curve radii")
 
 
 class CYCLES_OT_use_shading_nodes(Operator):
@@ -2136,6 +2161,7 @@ classes = (
     CYCLES_OBJECT_PT_cycles_settings,
     CYCLES_OBJECT_PT_cycles_settings_ray_visibility,
     CYCLES_OBJECT_PT_cycles_settings_performance,
+    CYCLES_CURVE_PT_hair_settings,
     CYCLES_OT_use_shading_nodes,
     CYCLES_LIGHT_PT_preview,
     CYCLES_LIGHT_PT_light,

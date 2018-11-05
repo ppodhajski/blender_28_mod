@@ -1073,11 +1073,36 @@ Mesh *BlenderSync::sync_mesh(BL::Depsgraph& b_depsgraph,
 		/* For some reason, meshes do not need this... */
 		bool need_undeformed = mesh->need_attribute(scene, ATTR_STD_GENERATED);
 
-		BL::Mesh b_mesh = object_to_mesh(b_data,
-		                                 b_ob,
-		                                 b_depsgraph,
-		                                 need_undeformed,
-		                                 mesh->subdivision_type);
+		//mesh->subdivision_type = object_subdivision_type(b_ob, preview, experimental);
+
+		/* Disable adaptive subdivision while baking as the baking system
+		 * currently doesnt support the topology and will crash.
+		 */
+		if(scene->bake_manager->get_baking()) {
+			mesh->subdivision_type = Mesh::SUBDIVISION_NONE;
+		}
+        
+        BL::Mesh b_mesh(PointerRNA_NULL);
+
+        bool render_as_hair = false;
+		// old way:PointerRNA cobject = RNA_pointer_get(&b_ob.ptr, "cycles_hair");
+		//bool render_as_hair = get_boolean(b_ob_data, "render_as_hair");
+        // [Nicolas Antille] : cycles_curves is here a property of the Curve data 
+        if(!b_ob_data || b_ob_data.is_a(&RNA_Curve)) {
+            PointerRNA cycles_curves = RNA_pointer_get(&b_ob_data.ptr, "cycles_curves");
+            render_as_hair = get_boolean(cycles_curves, "render_as_hair");
+        }
+        if(render_as_hair) {
+			sync_curves(mesh, b_mesh, b_ob, false);
+		}
+		else {
+            b_mesh = object_to_mesh(b_data,
+                                    b_ob,
+                                    b_depsgraph,
+                                    //apply_modifiers,
+                                    need_undeformed,
+                                    mesh->subdivision_type);
+        }
 
 		if(b_mesh) {
 			/* Sync mesh itself. */
