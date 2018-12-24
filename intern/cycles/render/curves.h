@@ -87,6 +87,7 @@ public:
 	array<float3> curvekey_co;
 	array<float> curvekey_time;
     array<float> curvekey_radius;
+    array<float> curvekey_value;
 };
 
 /* HairSystem Manager */

@@ -269,6 +269,8 @@ const char *Attribute::standard_name(AttributeStandard std)
 			return "curve_intercept";
 		case ATTR_STD_CURVE_RANDOM:
 			return "curve_random";
+		case ATTR_STD_CURVE_VALUE:
+			return "curve_value";
 		case ATTR_STD_PTEX_FACE_ID:
 			return "ptex_face_id";
 		case ATTR_STD_PTEX_UV:
@@ -463,6 +465,9 @@ Attribute *AttributeSet::add(AttributeStandard std, ustring name)
 			case ATTR_STD_CURVE_RANDOM:
 				attr = add(name, TypeDesc::TypeFloat, ATTR_ELEMENT_CURVE);
 				break;
+            case ATTR_STD_CURVE_VALUE:
+                attr = add(name, TypeDesc::TypeFloat, ATTR_ELEMENT_CURVE_KEY);
+                break;
 			case ATTR_STD_GENERATED_TRANSFORM:
 				attr = add(name, TypeDesc::TypeMatrix, ATTR_ELEMENT_MESH);
 				break;

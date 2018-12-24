@@ -181,6 +181,7 @@ typedef enum NodeHairInfo {
 	/*NODE_INFO_CURVE_FADE,*/
 	NODE_INFO_CURVE_TANGENT_NORMAL,
 	NODE_INFO_CURVE_RANDOM,
+    NODE_INFO_CURVE_VALUE
 } NodeHairInfo;
 
 typedef enum NodeLightPath {

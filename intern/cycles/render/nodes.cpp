@@ -3958,6 +3958,7 @@ NODE_DEFINE(HairInfoNode)
 	SOCKET_OUT_FLOAT(fade, "Fade");
 #endif
 	SOCKET_OUT_FLOAT(index, "Random");
+	SOCKET_OUT_FLOAT(value, "Value");
 
 	return type;
 }
@@ -3977,6 +3978,9 @@ void HairInfoNode::attributes(Shader *shader, AttributeRequestSet *attributes)
 
 		if(!output("Random")->links.empty())
 			attributes->add(ATTR_STD_CURVE_RANDOM);
+
+		if(!output("Value")->links.empty())
+			attributes->add(ATTR_STD_CURVE_VALUE);
 	}
 
 	ShaderNode::attributes(shader, attributes);
@@ -4015,6 +4019,12 @@ void HairInfoNode::compile(SVMCompiler& compiler)
 	out = output("Random");
 	if(!out->links.empty()) {
 		int attr = compiler.attribute(ATTR_STD_CURVE_RANDOM);
+		compiler.add_node(NODE_ATTR, attr, compiler.stack_assign(out), NODE_ATTR_FLOAT);
+	}
+
+	out = output("Value");
+	if(!out->links.empty()) {
+		int attr = compiler.attribute(ATTR_STD_CURVE_VALUE);
 		compiler.add_node(NODE_ATTR, attr, compiler.stack_assign(out), NODE_ATTR_FLOAT);
 	}
 }

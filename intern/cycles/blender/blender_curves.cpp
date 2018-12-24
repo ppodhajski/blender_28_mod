@@ -28,6 +28,8 @@
 #include "util/util_hash.h"
 #include "util/util_logging.h"
 #include <cmath>
+#include<iostream>
+using namespace std;
 
 CCL_NAMESPACE_BEGIN
 
@@ -214,6 +216,8 @@ static bool ObtainCurveData(Mesh *mesh,
 		float curve_length = 0.0f;
 		float3 prev_co;
 		for(int point = 0; point < num_points - 1; ++point) {
+            float point_value;
+            float next_point_value;
 			if(is_bezier) {
 				/* TODO(sergey): We can cache previous point and its handle. */
 				BL::BezierSplinePoint b_curr_point = b_spline.bezier_points[point];
@@ -222,6 +226,8 @@ static bool ObtainCurveData(Mesh *mesh,
 				const float3 q1 = get_float3(b_curr_point.handle_right());
 				const float3 q2 = get_float3(b_next_point.handle_left());
 				const float3 q3 = get_float3(b_next_point.co());
+                point_value = b_curr_point.weight_softbody();
+                next_point_value = b_next_point.weight_softbody();
 
 				// Added radii support for Bezier curves
 				forward_diff_bezier(q0, q1, q2, q3, resolution, &points);
@@ -233,6 +239,8 @@ static bool ObtainCurveData(Mesh *mesh,
 			else {
 				BL::SplinePoint b_curr_point = b_spline.points[point];
 				BL::SplinePoint b_next_point = b_spline.points[point + 1];
+                point_value = b_curr_point.weight_softbody();
+                next_point_value = b_next_point.weight_softbody();
 				/* TODO(sergey): Perform proper interpolation of NURBS here. */
 
 				// Added support for curves radii
@@ -245,6 +253,9 @@ static bool ObtainCurveData(Mesh *mesh,
 
 				resolution = 2;
 			}
+            float value_step = -1.0;
+            if (point_value != next_point_value)
+                value_step = (next_point_value - point_value) / resolution;
 			for (int diff_point = 0; diff_point < resolution; ++diff_point) {
 				const float3 co = points[diff_point];
 
@@ -261,6 +272,11 @@ static bool ObtainCurveData(Mesh *mesh,
 				CData->curvekey_co.push_back_slow(co);
 				CData->curvekey_radius.push_back_slow(radius);
 				CData->curvekey_time.push_back_slow(curve_length);
+                
+                float value = point_value;
+                if (value_step > 0.0)
+                    value = point_value + (value_step * diff_point);
+                CData->curvekey_value.push_back_slow(value);
 				prev_co = co;
 				++keynum;
 			}
@@ -298,7 +314,7 @@ static bool ObtainCacheParticleData(Mesh *mesh,
 
 	if(!(mesh && b_mesh && b_ob && CData))
 		return false;
-
+    
 	Transform tfm = get_transform(b_ob->matrix_world());
 	Transform itfm = transform_quick_inverse(tfm);
 
@@ -367,6 +383,8 @@ static bool ObtainCacheParticleData(Mesh *mesh,
 						}
 						CData->curvekey_co.push_back_slow(cKey);
 						CData->curvekey_time.push_back_slow(curve_length);
+                        // [Nicolas Antille] Todo: see if hair from a p-system could be given values
+                        CData->curvekey_value.push_back_slow(0.0);
 						pcKey = cKey;
 						keynum++;
 					}
@@ -393,7 +411,7 @@ static bool ObtainCacheParticleUV(Mesh *mesh,
 	if(!(mesh && b_mesh && b_ob && CData))
 		return false;
 
-	CData->curve_uv.clear();
+    CData->curve_uv.clear();
 
 	BL::Object::modifiers_iterator b_mod;
 	for(b_ob->modifiers.begin(b_mod); b_mod != b_ob->modifiers.end(); ++b_mod) {
@@ -452,7 +470,7 @@ static bool ObtainCacheParticleVcol(Mesh *mesh,
 	if(!(mesh && b_mesh && b_ob && CData))
 		return false;
 
-	CData->curve_vcol.clear();
+    CData->curve_vcol.clear();
 
 	BL::Object::modifiers_iterator b_mod;
 	for(b_ob->modifiers.begin(b_mod); b_mod != b_ob->modifiers.end(); ++b_mod) {
@@ -507,7 +525,7 @@ static void ExportCurveTrianglePlanes(Mesh *mesh, ParticleCurveData *CData,
 	int vertexno = mesh->verts.size();
 	int vertexindex = vertexno;
 	int numverts = 0, numtris = 0;
-
+    
 	/* compute and reserve size of arrays */
 	for(int sys = 0; sys < CData->psys_firstcurve.size(); sys++) {
 		for(int curve = CData->psys_firstcurve[sys]; curve < CData->psys_firstcurve[sys] + CData->psys_curvenum[sys]; curve++) {
@@ -766,7 +784,7 @@ static void ExportCurveTriangleGeometry(Mesh *mesh,
 
 static void ExportCurveSegments(Scene *scene, Mesh *mesh, ParticleCurveData *CData)
 {
-	int num_keys = 0;
+    int num_keys = 0;
 	int num_curves = 0;
 
 	if(mesh->num_curves())
@@ -774,11 +792,14 @@ static void ExportCurveSegments(Scene *scene, Mesh *mesh, ParticleCurveData *CDa
 
 	Attribute *attr_intercept = NULL;
 	Attribute *attr_random = NULL;
+	Attribute *attr_value = NULL;
 
 	if(mesh->need_attribute(scene, ATTR_STD_CURVE_INTERCEPT))
 		attr_intercept = mesh->curve_attributes.add(ATTR_STD_CURVE_INTERCEPT);
 	if(mesh->need_attribute(scene, ATTR_STD_CURVE_RANDOM))
 		attr_random = mesh->curve_attributes.add(ATTR_STD_CURVE_RANDOM);
+	if(mesh->need_attribute(scene, ATTR_STD_CURVE_VALUE))
+		attr_value = mesh->curve_attributes.add(ATTR_STD_CURVE_VALUE);
 
 	/* compute and reserve size of arrays */
 	for(int sys = 0; sys < CData->psys_firstcurve.size(); sys++) {
@@ -830,6 +851,9 @@ static void ExportCurveSegments(Scene *scene, Mesh *mesh, ParticleCurveData *CDa
 				mesh->add_curve_key(ickey_loc, radius);
 				if(attr_intercept)
 					attr_intercept->add(time);
+                
+                if(attr_value)
+                    attr_value->add(CData->curvekey_value[curvekey]);
 
 				num_curve_keys++;
 			}
@@ -1212,14 +1236,14 @@ void BlenderSync::sync_curves(Mesh *mesh,
 		PointerRNA data = RNA_pointer_get(&b_ob_data.ptr, "cycles_curves");
 		render_as_hair = get_boolean(data, "render_as_hair");
 	}
-
+    
     ParticleCurveData CData;
 
     if (render_as_hair) {
         ObtainCurveData(mesh, &b_mesh, &b_ob, &CData, !preview);
     }
     else {
-	   ObtainCacheParticleData(mesh, &b_mesh, &b_ob, &CData, !preview);
+        ObtainCacheParticleData(mesh, &b_mesh, &b_ob, &CData, !preview);
     }
 
 	/* add hair geometry to mesh */
