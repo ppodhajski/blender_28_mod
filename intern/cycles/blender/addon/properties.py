@@ -1183,7 +1183,7 @@ class CyclesCurveHairSettings(bpy.types.PropertyGroup):
     )
         
     use_curve_radii: BoolProperty(
-        name="When the curve is rendered as hair, use its radii",
+        name="Render hair with splines radii",
         description="Use the splines radii when making hair, useful for tree/graph-like structures",
         default=True
     )

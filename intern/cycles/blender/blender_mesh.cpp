@@ -1099,7 +1099,6 @@ Mesh *BlenderSync::sync_mesh(BL::Depsgraph& b_depsgraph,
             b_mesh = object_to_mesh(b_data,
                                     b_ob,
                                     b_depsgraph,
-                                    //apply_modifiers,
                                     need_undeformed,
                                     mesh->subdivision_type);
         }

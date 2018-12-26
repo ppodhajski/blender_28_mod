@@ -75,9 +75,9 @@ public:
     
     array<bool> render_as_hair;
     array<bool> use_curve_radii;
+    
     // One shader per spline using its material_index
     array<int> curve_shader;
-
 	array<int> curve_firstkey;
 	array<int> curve_keynum;
 	array<float> curve_length;
