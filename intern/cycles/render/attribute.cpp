@@ -269,6 +269,12 @@ const char *Attribute::standard_name(AttributeStandard std)
 			return "curve_intercept";
 		case ATTR_STD_CURVE_RANDOM:
 			return "curve_random";
+        case ATTR_STD_CURVE_INDEX:
+            return "curve_index";
+        case ATTR_STD_CURVE_COUNT:
+            return "curve_count";
+        case ATTR_STD_CURVE_LENGTH:
+            return "curve_length";
 		case ATTR_STD_CURVE_VALUE:
 			return "curve_value";
 		case ATTR_STD_PTEX_FACE_ID:
@@ -463,6 +469,15 @@ Attribute *AttributeSet::add(AttributeStandard std, ustring name)
 				attr = add(name, TypeDesc::TypeFloat, ATTR_ELEMENT_CURVE_KEY);
 				break;
 			case ATTR_STD_CURVE_RANDOM:
+				attr = add(name, TypeDesc::TypeFloat, ATTR_ELEMENT_CURVE);
+				break;
+			case ATTR_STD_CURVE_INDEX:
+				attr = add(name, TypeDesc::TypeFloat, ATTR_ELEMENT_CURVE);
+				break;
+			case ATTR_STD_CURVE_COUNT:
+				attr = add(name, TypeDesc::TypeFloat, ATTR_ELEMENT_CURVE);
+				break;
+			case ATTR_STD_CURVE_LENGTH:
 				attr = add(name, TypeDesc::TypeFloat, ATTR_ELEMENT_CURVE);
 				break;
             case ATTR_STD_CURVE_VALUE:

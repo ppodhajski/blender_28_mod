@@ -3958,6 +3958,9 @@ NODE_DEFINE(HairInfoNode)
 	SOCKET_OUT_FLOAT(fade, "Fade");
 #endif
 	SOCKET_OUT_FLOAT(index, "Random");
+	SOCKET_OUT_FLOAT(curve_index, "Spline Index");
+	SOCKET_OUT_FLOAT(curve_count, "Splines Count");
+	SOCKET_OUT_FLOAT(curve_length, "Spline Length");
 	SOCKET_OUT_FLOAT(value, "Value");
 
 	return type;
@@ -3978,6 +3981,15 @@ void HairInfoNode::attributes(Shader *shader, AttributeRequestSet *attributes)
 
 		if(!output("Random")->links.empty())
 			attributes->add(ATTR_STD_CURVE_RANDOM);
+
+		if(!output("Spline Index")->links.empty())
+			attributes->add(ATTR_STD_CURVE_INDEX);
+
+		if(!output("Splines Count")->links.empty())
+			attributes->add(ATTR_STD_CURVE_COUNT);
+
+		if(!output("Spline Length")->links.empty())
+			attributes->add(ATTR_STD_CURVE_LENGTH);
 
 		if(!output("Value")->links.empty())
 			attributes->add(ATTR_STD_CURVE_VALUE);
@@ -4019,6 +4031,24 @@ void HairInfoNode::compile(SVMCompiler& compiler)
 	out = output("Random");
 	if(!out->links.empty()) {
 		int attr = compiler.attribute(ATTR_STD_CURVE_RANDOM);
+		compiler.add_node(NODE_ATTR, attr, compiler.stack_assign(out), NODE_ATTR_FLOAT);
+	}
+
+	out = output("Spline Index");
+	if(!out->links.empty()) {
+		int attr = compiler.attribute(ATTR_STD_CURVE_INDEX);
+		compiler.add_node(NODE_ATTR, attr, compiler.stack_assign(out), NODE_ATTR_FLOAT);
+	}
+
+	out = output("Splines Count");
+	if(!out->links.empty()) {
+		int attr = compiler.attribute(ATTR_STD_CURVE_COUNT);
+		compiler.add_node(NODE_ATTR, attr, compiler.stack_assign(out), NODE_ATTR_FLOAT);
+	}
+
+	out = output("Spline Length");
+	if(!out->links.empty()) {
+		int attr = compiler.attribute(ATTR_STD_CURVE_LENGTH);
 		compiler.add_node(NODE_ATTR, attr, compiler.stack_assign(out), NODE_ATTR_FLOAT);
 	}
 

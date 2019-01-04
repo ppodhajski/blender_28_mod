@@ -1528,7 +1528,7 @@ void MeshManager::device_update_attributes(Device *device, DeviceScene *dscene, 
 			mesh_attributes[i].add(shader->attributes);
 		}
 	}
-
+    
 	/* mesh attribute are stored in a single array per data type. here we fill
 	 * those arrays, and set the offset and element type to create attribute
 	 * maps next */

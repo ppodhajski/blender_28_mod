@@ -22,6 +22,9 @@ shader node_hair_info(
 	output float Thickness = 0.0,
 	output normal TangentNormal = N,
 	output float Random = 0,
+    output float SplineIndex = 0,
+    output float SplinesCount = 0,
+    output float SplineLength = 0,
     output float Value = 0)
 {
 	getattribute("geom:is_curve", IsStrand);
@@ -29,6 +32,9 @@ shader node_hair_info(
 	getattribute("geom:curve_thickness", Thickness);
 	getattribute("geom:curve_tangent_normal", TangentNormal);
 	getattribute("geom:curve_random", Random);
+	getattribute("geom:curve_index", SplineIndex);
+	getattribute("geom:curve_count", SplinesCount);
+	getattribute("geom:curve_length", SplineLength);
 	getattribute("geom:curve_value", Value);
 }
 

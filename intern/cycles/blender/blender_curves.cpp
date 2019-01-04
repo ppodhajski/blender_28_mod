@@ -176,22 +176,10 @@ static bool ObtainCurveData(Mesh *mesh,
 	}
     CData->render_as_hair.push_back_slow(render_as_hair);
     CData->use_curve_radii.push_back_slow(use_curve_radii);
-    /*
-    BL::ParticleSystemModifier psmd((const PointerRNA)b_mod->ptr);
-    BL::ParticleSystem b_psys((const PointerRNA)psmd.particle_system().ptr);
-    BL::ParticleSettings b_part((const PointerRNA)b_psys.settings().ptr);
-    float radius = b_part.radius_scale() * 0.5f;
-    CData->psys_rootradius.push_back_slow(radius * b_part.root_radius());
-    CData->psys_tipradius.push_back_slow(radius * b_part.tip_radius());
-    CData->psys_shape.push_back_slow(b_part.shape());
-    CData->psys_closetip.push_back_slow(b_part.use_close_tip());
     
-	const float radius_scale = get_float(chair, "radius_scale") * 0.5f;
-    CData->psys_rootradius.push_back_slow(radius_scale * get_float(chair, "root_width"));
-	CData->psys_tipradius.push_back_slow(radius_scale * get_float(chair, "tip_width"));
-	CData->psys_shape.push_back_slow(get_float(chair, "shape"));
-	CData->psys_closetip.push_back_slow(get_boolean(chair, "use_closetip"));
-    */
+	if(!render_as_hair) {
+        return false;    
+    }
     
     CData->curve_shader.reserve(num_splines);
     CData->curve_length.reserve(num_splines);
@@ -201,6 +189,8 @@ static bool ObtainCurveData(Mesh *mesh,
 	vector<float3> points;
 	vector<float> radii;
 
+    // Variables refer to splines here as this is really what you have in the UI
+    // For some reason in Cycles code, splines are curves and curves are "psys" or particle systems.
 	for(int spline = 0; spline < num_splines; ++spline) {
 		BL::Spline b_spline = b_curve.splines[spline];
 		const bool is_bezier = (b_spline.type() == BL::Spline::type_BEZIER);
@@ -819,21 +809,31 @@ static void ExportCurveSegments(Scene *scene, Mesh *mesh, ParticleCurveData *CDa
 {
     int num_keys = 0;
 	int num_curves = 0;
+	int human_countable_num_curves = 0;
 
 	if(mesh->num_curves())
 		return;
 
 	Attribute *attr_intercept = NULL;
 	Attribute *attr_random = NULL;
+	Attribute *attr_index = NULL;
+	Attribute *attr_count = NULL;
+	Attribute *attr_length = NULL;
 	Attribute *attr_value = NULL;
 
 	if(mesh->need_attribute(scene, ATTR_STD_CURVE_INTERCEPT))
 		attr_intercept = mesh->curve_attributes.add(ATTR_STD_CURVE_INTERCEPT);
 	if(mesh->need_attribute(scene, ATTR_STD_CURVE_RANDOM))
 		attr_random = mesh->curve_attributes.add(ATTR_STD_CURVE_RANDOM);
+	if(mesh->need_attribute(scene, ATTR_STD_CURVE_INDEX))
+		attr_index = mesh->curve_attributes.add(ATTR_STD_CURVE_INDEX);
+	if(mesh->need_attribute(scene, ATTR_STD_CURVE_COUNT))
+		attr_count = mesh->curve_attributes.add(ATTR_STD_CURVE_COUNT);
+	if(mesh->need_attribute(scene, ATTR_STD_CURVE_LENGTH))
+		attr_length = mesh->curve_attributes.add(ATTR_STD_CURVE_LENGTH);
 	if(mesh->need_attribute(scene, ATTR_STD_CURVE_VALUE))
 		attr_value = mesh->curve_attributes.add(ATTR_STD_CURVE_VALUE);
-
+    
 	/* compute and reserve size of arrays */
 	for(int sys = 0; sys < CData->psys_firstcurve.size(); sys++) {
 		for(int curve = CData->psys_firstcurve[sys]; curve < CData->psys_firstcurve[sys] + CData->psys_curvenum[sys]; curve++) {
@@ -842,6 +842,7 @@ static void ExportCurveSegments(Scene *scene, Mesh *mesh, ParticleCurveData *CDa
 
 			num_keys += CData->curve_keynum[curve];
 			num_curves++;
+            human_countable_num_curves++;
 		}
 	}
 
@@ -885,18 +886,26 @@ static void ExportCurveSegments(Scene *scene, Mesh *mesh, ParticleCurveData *CDa
                 }
 
 				mesh->add_curve_key(ickey_loc, radius);
-				if(attr_intercept)
+				if(attr_intercept != NULL)
 					attr_intercept->add(time);
-                
-                if(attr_value)
+
+                if(attr_value != NULL)
                     attr_value->add(CData->curvekey_value[curvekey]);
 
 				num_curve_keys++;
 			}
 
-			if(attr_random != NULL) {
+			if(attr_random != NULL)
 				attr_random->add(hash_int_01(num_curves));
-			}
+            
+            if (attr_index != NULL)
+                attr_index->add(static_cast< float >(curve));
+
+            if (attr_count != NULL)
+                attr_count->add(static_cast< float >(human_countable_num_curves));
+
+            if (attr_length != NULL)
+                attr_length->add(CData->curve_length[curve]);
             
             int shader;
             if (render_as_hair) {
@@ -1252,7 +1261,7 @@ void BlenderSync::sync_curves(Mesh *mesh,
 		mesh->curve_shader.clear();
 		mesh->curve_attributes.clear();
 	}
-
+    
 	/* obtain general settings */
 	const bool use_curves = scene->curve_system_manager->use_curves;
 

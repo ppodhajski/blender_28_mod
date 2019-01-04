@@ -184,6 +184,9 @@ public:
 	static ustring u_curve_thickness;
 	static ustring u_curve_tangent_normal;
 	static ustring u_curve_random;
+	static ustring u_curve_index;
+	static ustring u_curve_count;
+	static ustring u_curve_length;
 	static ustring u_curve_value;
 	static ustring u_path_ray_length;
 	static ustring u_path_ray_depth;
