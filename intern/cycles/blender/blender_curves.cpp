@@ -112,10 +112,7 @@ static void InterpolateKeySegments(int seg,
 		curveinterp_v3_v3v3v3v3(keyloc, &ckey_loc1, &ckey_loc2, &ckey_loc3, &ckey_loc4, t);
 }
 
-
-
-// ----------------
-
+// Very similar to BKE_curve_forward_diff_bezier() from source/blender/blenkernel/intern/curve.c
 static void forward_diff_bezier(const float3& q0,
                                 const float3& q1,
                                 const float3& q2,
@@ -123,6 +120,10 @@ static void forward_diff_bezier(const float3& q0,
                                 int resolution,
                                 vector<float3> *points)
 {
+    // Somehow this code fails at making bezier splines that go all the way
+    // to the last point, so the rendered curve looks truncated somewhere
+    // between the last point and its parent. Changing the resolution only
+    // makes it slightly less truncated.
 	const float resolution2 = resolution*resolution;
 	const float resolution3 = resolution2*resolution;
 	const float3 rt0 = q0;
@@ -142,6 +143,11 @@ static void forward_diff_bezier(const float3& q0,
 	}
 }
 
+/* 
+[Nicolas Antille] Transition between Blender and Cycles. This is the 
+main function for treating splines and curve data. Be warned about variable names: 
+in C/C++ sources of Cycles, "curve" describes both curve objects and splines (!).
+*/
 static bool ObtainCurveData(Mesh *mesh,
                             BL::Mesh *b_mesh,
                             BL::Object *b_ob,
@@ -172,7 +178,7 @@ static bool ObtainCurveData(Mesh *mesh,
 	if(!b_ob_data || b_ob_data.is_a(&RNA_Curve)) {
 		PointerRNA cycles_curves = RNA_pointer_get(&b_ob_data.ptr, "cycles_curves");
 		render_as_hair = get_boolean(cycles_curves, "render_as_hair");
-		use_curve_radii = get_boolean(cycles_curves, "use_curve_radii");
+		//use_curve_radii = get_boolean(cycles_curves, "use_curve_radii");
 	}
     CData->render_as_hair.push_back_slow(render_as_hair);
     CData->use_curve_radii.push_back_slow(use_curve_radii);
@@ -205,6 +211,7 @@ static bool ObtainCurveData(Mesh *mesh,
 		}
 		int keynum = 0;
 		CData->curve_firstkey.push_back_slow(keyno);
+        
 		float curve_length = 0.0f;
 		float3 prev_co;
         
@@ -227,15 +234,16 @@ static bool ObtainCurveData(Mesh *mesh,
                 
                 /*
                 Hacking weight_softbody attribute of b-splines (and splines below)
-                If you want to set a value, it has to be between 0.5 and 100.0
-                Below 0.5, some minute modification of the value will occur
+                If you want to set a value, it has to be between 0.5 and 100.0.
+                Below 0.5, some floating point bias will occur (eg. 0.1 becomes 0.100042).
+                Also, Blender won't let you set 0 value.
                 */
                 point_value = b_curr_point.weight_softbody();
                 next_point_value = b_next_point.weight_softbody();
 
-				// Added radii support for Bezier curves
 				forward_diff_bezier(q0, q1, q2, q3, resolution, &points);
                 radii.resize(resolution + 1);
+                // Todo: check if linear interp is fine or if it should also be evaluated with a bezier curve
                 for (int i = 0; i <= resolution; ++i) {
                     radii[i] = b_curr_point.radius() + (b_next_point.radius() - b_curr_point.radius()) / resolution * i;
                 }
@@ -244,26 +252,44 @@ static bool ObtainCurveData(Mesh *mesh,
 				BL::SplinePoint b_curr_point = b_spline.points[point];
 				BL::SplinePoint b_next_point = b_spline.points[point + 1];
                 
-                /*
-                Hacking weight_softbody attribute of splines (and b-splines above)
-                If you want to set a value, it has to be between 0.5 and 100.0
-                Below 0.5, some minute modification of the value will occur
-                */
                 point_value = b_curr_point.weight_softbody();
                 next_point_value = b_next_point.weight_softbody();
                 
-				/* TODO(sergey): Perform proper interpolation of NURBS here. */
+                points.resize(resolution + 1);
+                radii.resize(resolution + 1);
+                for (int i = 0; i <= resolution; ++i) {
+                    
+                    float3 ckey_loc1 = get_float3(b_curr_point.co());
+                    float3 ckey_loc2 = ckey_loc1;
+                    float3 ckey_loc3 = get_float3(b_next_point.co());
+                    float3 ckey_loc4 = ckey_loc3;
 
-				// Added support for curves radii
-				points.resize(2);
-				radii.resize(2);
-				points[0] = get_float3(b_curr_point.co());
-				points[1] = get_float3(b_next_point.co());
-				radii[0] = b_curr_point.radius();
-				radii[1] = b_next_point.radius();
+                    if(point > 0) {
+                        BL::SplinePoint b_prev_point = b_spline.points[point-1];
+                        ckey_loc1 = get_float3(b_prev_point.co());
+                    }
 
-				resolution = 2;
+                    if(point < num_points - 2){
+                        BL::SplinePoint b_second_next_point = b_spline.points[point+2];
+                        ckey_loc4 = get_float3(b_second_next_point.co());
+                    }
+                    
+                    float weights[4];
+                    interp_weights((float)i / (float)resolution, weights);
+                    
+                    float3 interp_point;
+                    curveinterp_v3_v3v3v3v3(&interp_point, 
+                                            &ckey_loc1, 
+                                            &ckey_loc2, 
+                                            &ckey_loc3,
+                                            &ckey_loc4,
+                                            weights);
+                    points[i] = interp_point;
+                    // Todo: check if linear interp is fine or if it should also be evaluated with a nurbs
+                    radii[i] = b_curr_point.radius() + (b_next_point.radius() - b_curr_point.radius()) / resolution * i;
+                }
 			}
+            // [Nicolas Antille] Todo: handle cyclic splines, if necessary
             
             // Value is any sort of float (bound to weight_softbody currently) value
             // that you want to assign to the curve. Useful for shading based on the value later on.
@@ -289,8 +315,10 @@ static bool ObtainCurveData(Mesh *mesh,
 				CData->curvekey_time.push_back_slow(curve_length);
                 
                 /* 
-                Todo [Nicolas Antille] : add a real "value" attribute for 
-                splines and bezier splines instead of using the weight_softbody attribute
+                [Nicolas Antille] Todo: add a real "value" attribute for 
+                splines and bezier splines instead of using the weight_softbody
+                attribute but that would probably require a lot of changes in
+                Blender code...looking at how much was modified in Cycles already.
                 */
                 float value = point_value;
                 if (value_step > 0.0)
@@ -300,12 +328,6 @@ static bool ObtainCurveData(Mesh *mesh,
 				++keynum;
 			}
 		}
-        
-        /*
-        [Nicolas Antille] Todo: 
-        - handle cyclic splines
-        - handle more curve interp styles
-        */
 		keyno += keynum;
         
         int shader = clamp(b_spline.material_index(), 0, mesh->used_shaders.size()-1);
@@ -317,10 +339,6 @@ static bool ObtainCurveData(Mesh *mesh,
 
 	return true;
 }
-
-// ----------------
-
-
 
 static bool ObtainCacheParticleData(Mesh *mesh,
                                     BL::Mesh *b_mesh,
