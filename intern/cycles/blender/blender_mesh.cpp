@@ -1085,8 +1085,6 @@ Mesh *BlenderSync::sync_mesh(BL::Depsgraph& b_depsgraph,
         BL::Mesh b_mesh(PointerRNA_NULL);
 
         bool render_as_hair = false;
-		// old way:PointerRNA cobject = RNA_pointer_get(&b_ob.ptr, "cycles_hair");
-		//bool render_as_hair = get_boolean(b_ob_data, "render_as_hair");
         // [Nicolas Antille] : cycles_curves is here a property of the Curve data 
         if(!b_ob_data || b_ob_data.is_a(&RNA_Curve)) {
             PointerRNA cycles_curves = RNA_pointer_get(&b_ob_data.ptr, "cycles_curves");
