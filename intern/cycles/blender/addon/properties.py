@@ -351,7 +351,7 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
     transparent_max_bounces: IntProperty(
         name="Transparent Max Bounces",
         description="Maximum number of transparent bounces",
-        min=0, max=1024,
+        min=0, max=131072,
         default=8,
     )
 
@@ -369,7 +369,7 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         description="Maximum number of steps through the volume before giving up, "
         "to avoid extremely long render times with big objects or small step sizes",
         default=1024,
-        min=2, max=65536
+        min=2, max=131072
     )
 
     dicing_rate: FloatProperty(
