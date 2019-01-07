@@ -112,8 +112,12 @@ typedef struct BevList {
  */
 typedef struct BezTriple {
 	float vec[3][3];
-	/** Alfa: tilt in 3D View, weight: used for softbody goal weight, radius: for bevel tapering. */
+    /** Alfa: tilt in 3D View, weight: used for softbody goal weight, radius: for bevel tapering. */
 	float alfa, weight, radius;
+    /* Key, value as their name implies is a key-value data storage, useful for shading later on.
+    Note: if you add a custom property, make sure that it matches the 8 byte alignment. 
+    This is why two values were added as float is 4 byte. */
+    float key, value;
 
 	/** Ipo: interpolation mode for segment from this BezTriple to the next. */
 	char ipo;
@@ -144,6 +148,8 @@ typedef struct BPoint {
 	float vec[4];
 	/** Alfa: tilt in 3D View, weight: used for softbody goal weight. */
 	float alfa, weight;
+    /* Key, value as their name implies is a key-value data storage, useful for shading later on */
+    float key, value;
 	/** F1: selection status,  hide: is point hidden or not. */
 	short f1, hide;
 	/** User-set radius per point for beveling etc. */

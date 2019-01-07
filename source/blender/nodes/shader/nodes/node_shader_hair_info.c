@@ -37,6 +37,7 @@ static bNodeSocketTemplate outputs[] = {
 	{	SOCK_FLOAT,  0, N_("Spline Index") },
 	{	SOCK_FLOAT,  0, N_("Splines Count") },
 	{	SOCK_FLOAT,  0, N_("Spline Length") },
+	{	SOCK_FLOAT,  0, N_("Key") },
 	{	SOCK_FLOAT,  0, N_("Value") },
 	{	-1, 0, ""	}
 };

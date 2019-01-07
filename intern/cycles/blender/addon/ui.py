@@ -1296,9 +1296,6 @@ class CYCLES_CURVE_PT_hair_settings(CyclesButtonsPanel, Panel):
         ob = context.object
         cc = ob.data.cycles_curves
         layout.active = cc.render_as_hair
-        # [Nicolas Antille] Todo: add options for modifying hair radii if necessary
-        #row = layout.row()
-        #row.prop(cc, "use_curve_radii", text="Use curve radii")
 
 
 class CYCLES_OT_use_shading_nodes(Operator):

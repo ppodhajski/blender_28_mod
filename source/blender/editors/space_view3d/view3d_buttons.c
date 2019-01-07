@@ -511,6 +511,10 @@ static void v3d_editvertex_buts(uiLayout *layout, View3D *v3d, Object *ob, float
 				          &data_ptr, "radius", 0, 0.0, 100.0, 1, 3, NULL);
 				uiDefButR(block, UI_BTYPE_NUM, 0, IFACE_("Tilt:"), 0, yi -= buth + but_margin, butw, buth,
 				          &data_ptr, "tilt", 0, -tilt_limit, tilt_limit, 1, 3, NULL);
+				uiDefButR(block, UI_BTYPE_NUM, 0, IFACE_("Key:"), 0, yi -= buth + but_margin, butw, buth,
+				          &data_ptr, "key", 0, -FLT_MAX, FLT_MAX, 1, 3, NULL);
+				uiDefButR(block, UI_BTYPE_NUM, 0, IFACE_("Value:"), 0, yi -= buth + but_margin, butw, buth,
+				          &data_ptr, "value", 0, -FLT_MAX, FLT_MAX, 1, 3, NULL);
 			}
 			else if (totcurvedata > 1) {
 				uiDefButF(block, UI_BTYPE_NUM, B_TRANSFORM_PANEL_MEDIAN, IFACE_("Mean Weight:"),

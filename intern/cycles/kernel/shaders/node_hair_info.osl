@@ -25,6 +25,7 @@ shader node_hair_info(
     output float SplineIndex = 0,
     output float SplinesCount = 0,
     output float SplineLength = 0,
+    output float Key = 0,
     output float Value = 0)
 {
 	getattribute("geom:is_curve", IsStrand);
@@ -35,6 +36,7 @@ shader node_hair_info(
 	getattribute("geom:curve_index", SplineIndex);
 	getattribute("geom:curve_count", SplinesCount);
 	getattribute("geom:curve_length", SplineLength);
+	getattribute("geom:curve_key", Key);
 	getattribute("geom:curve_value", Value);
 }
 

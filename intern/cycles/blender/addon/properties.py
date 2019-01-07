@@ -1181,12 +1181,6 @@ class CyclesCurveHairSettings(bpy.types.PropertyGroup):
         description="Render all splines within this curve object as Cycles hair so that you don't need to mesh/bevel them in the viewport",
         default=False
     )
-        
-    use_curve_radii: BoolProperty(
-        name="Render hair with splines radii",
-        description="Use the splines radii when making hair, useful for tree/graph-like structures",
-        default=True
-    )
     
     @classmethod
     def register(cls):

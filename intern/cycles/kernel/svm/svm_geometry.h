@@ -212,6 +212,9 @@ ccl_device void svm_node_hair_info(KernelGlobals *kg,
 		case NODE_INFO_CURVE_LENGTH: {
 			break; /* handled as attribute */
 		}
+		case NODE_INFO_CURVE_KEY: {
+			break; /* handled as attribute */
+		}
 		case NODE_INFO_CURVE_VALUE: {
 			break; /* handled as attribute */
 		}

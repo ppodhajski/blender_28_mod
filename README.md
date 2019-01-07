@@ -1,17 +1,18 @@
-# Render splines using Cycles hair primitives
-
 ![](https://www.antillevisuals.com/technical-research/cycles_mod_splines_as_hair.jpg)
+
+# Render splines using Cycles hair primitives
 
 ## Features
 This is a Cycles modification that allows you to skip meshing splines entirely and render them as hair. Needless to say, with this method you can render *lots* of them (hello large-scale).
-Splines to hair:
+1. Splines to hair:
 Render all splines within a curve object as hair in one click in the UI, also easily scriptable.
-Radii variation:
-If you modify the radius at each point of your spline or b-spline, this will be affect the hair (see image above).
-Per-spline material:
+2. Radius variation:
+Splines are rendered with their radii so this is more than simple tapering hair.
+3. Per-spline material:
 This modification allows to have per-spline materials. You need to add the materials to the curve object and then set the material_index of each spline.
-Value (beta):
-In the Hair Info node of Cycles, the Value slot is now added. It allows you to pass a value per spline point to the weight_softbody property and use it for modulating materials. You may pass any float between 0.5 and 100 to weight_softbody attribute of spline or b-spline points. Why weight_softbody? Because this is the only shared property between b-splines and splines in Blender. A real "value" property could be added later. 
+4. Two custom values on spline points:
+In the Hair Info node of Cycles, the Value slot is now added. It allows you to pass a float value per spline point to the `value` property and use it for modulating materials. 
+*Warning* Do not open save your file with another version of Blender or custom values will be lost! You've been warned.
 
 ## How to use it?
 You need to compile Blender with these sources. You need to have git installed on your system or skip step 1 and download sources from github.
@@ -37,87 +38,91 @@ This is a modification for Blender 2.8+.
 5. Make sure that in panel `Scene`, under `Geometry`, the option `Use Hair` is enabled.
 6. Tweak options under `Use Hair`, set `Shape` to `Thick` and `Primitive` to `Curve Segments`.
 
-## You can't have it all
-Please note that when a spline is rendered as a hair primitive, it has *no mesh and thus all mesh related features of splines/curves will be ignored!*.
-Also currently the interpolation of hair primitives doesn't match all possible interpolations that splines and b-splines offer. This could be improved too.
-
-Typical features that are not supported (mesh related):
-- no support of shape parameters like fill, twisting and resolution
-- no uv mapping, though you can get U coordinate with HairInfo>Intercept multiplied with the new HairInfo>SplineLength.
-- no taper/bevel object
-- no cyclic property (though if people need it, it could be added)
-- no nurbs interpolation and resolution (currently only hair interpolation for curves)
+## Hair != beveled curves
+Please note that when a spline is rendered as a hair primitive, it has *no mesh* and so all bevel/taper and meshing related features of splines/curves will be ignored.
+So with this method:
+- no mesh-related like fill, twisting, resolution, taper, bevel, ...
+- no uv mapping, though you can get U coordinate with HairInfo.Intercept multiplied with the new HairInfo.SplineLength.
+- no cyclic property (you can manually move the last point of your curve to match the first one or...do a PR on this code)
 
 ## Testing
-This example creates 1000 (n) splines within one curve object and sets random radii and weights (for HairInfo>Value).
-`
-import numpy as np
-import bpy
-import random
+This example creates 1000 (n) splines within one curve object and sets random radii and custom values (for HairInfo.Value).
 
-def create_spline(curve_data, s_type='NURBS', len_nodes=100, bud_position=None):
-    s_type = 'NURBS'
-    spline = curve_data.splines.new(type=s_type)
-    
-    # Regular spline points need xyz + weight
-    got_points = 1
-    co_dimension = 4
-    pts = spline.points
-    if s_type == 'BEZIER':
-        got_points = 2
-        # Bezier control points accept only xyz
-        co_dimension = 3
-        # Left and right handles are not handled here
-        pts = spline.bezier_points
-    
-    # Spline already has got point(s) when created
-    spline.points.add(len_nodes - got_points)
-    
-    if bud_position is None:
-        bud_position = np.random.rand(1, co_dimension) * 100
-    
-    radii = np.random.rand(len_nodes)
-    radii *= radii**2
-    rnd_walk = np.arange(len_nodes-1)
-    rnd_walk += 1
-    rnd_walk *= 3.1415926535 / (len_nodes/2)
-    nodes = np.random.rand(len_nodes, co_dimension)
-    nodes[:, 0] += np.sin(rnd_walk) * 10
-    nodes[:, 1] += np.cos(rnd_walk) * 10
-    nodes[:, 2] += np.sin(rnd_walk*2) * np.cos(rnd_walk*2) * 10
-    nodes[:, :] *= 10
-    nodes += bud_position
-    # weight_softbody modifies values below 0.5, max is 100
-    values = np.random.rand(len_nodes) + 0.5
-    
-    pts.foreach_set('radius', radii.ravel())
-    pts.foreach_set('co', nodes.ravel())
-    pts.foreach_set('weight_softbody', values.ravel())
-    
-    spline.use_endpoint_u = True
-    return spline
+    # Blender 2.8 modification
+    # Splines as hair example
 
+    import numpy as np
+    import bpy
+    import random
 
-def create_random_splines_within_curve(n_splines=100, n_nodes_per_spline=100, name='Curve > hair'):
-    curve_data = bpy.data.curves.new(name=name, type='CURVE')
-    curve_data.dimensions = '3D'
-    curve = bpy.data.objects.new(name=name, object_data=curve_data)
+    def create_spline(curve_data, s_type='NURBS', len_nodes=100, bud_position=None):
+        s_type = 'NURBS'
+        spline = curve_data.splines.new(type=s_type)
 
-    bezier_or_not = np.random.rand(n_splines)
-    for spline_id in range(n_splines):
-        len_nodes = n_nodes_per_spline + random.random() * 10
-        s_type = 'NURBS' if bezier_or_not[spline_id] < 0.5 else 'BEZIER'
-        # curve_data equivalent to accessing curve.data
-        spline = create_spline(curve_data, s_type, len_nodes)
-    
-    # Or use bpy.context.scene if you prefer
-    bpy.data.scenes['Scene'].objects.link(curve)
-    return curve
-    
-curve = create_random_splines_within_curve(10, 100)
-# Tell Cycles to render all splines within this curve as hair 
-curve.cycles_curves.render_as_hair = True
-`
+        # Regular spline points need xyz + weight
+        got_points = 1
+        co_dimension = 4
+        pts = spline.points
+        if s_type == 'BEZIER':
+            got_points = 2
+            # Bezier control points accept only xyz
+            co_dimension = 3
+            # Left and right handles are not handled here
+            pts = spline.bezier_points
+
+        # Spline already has got point(s) when created
+        spline.points.add(len_nodes - got_points)
+
+        if bud_position is None:
+            bud_position = np.random.rand(1, co_dimension) * 100
+
+        # Random + sin + cos just for demo, replace with your data
+        # or what you generate with Sverchok or Animation Nodes
+        radii = np.random.rand(len_nodes)
+        radii *= radii * 4
+        rnd_walk = np.arange(len_nodes)
+        rnd_walk += 1
+        rnd_walk *= int(3.1415926535 / len_nodes)
+        nodes = np.random.rand(len_nodes, co_dimension)
+        rf = random.random() + 1
+        rf2 = random.random() + 1
+        nodes[:, 0] += np.sin(np.cos(rnd_walk)) * 40
+        nodes[:, 1] += (np.cos(np.sin(rnd_walk)**rf) + np.sin(rnd_walk*rf2)) * 40
+        nodes[:, 2] += np.sin(rnd_walk*rf2) * np.cos(rnd_walk*rf) * 40
+        nodes[:, :] *= 10
+        nodes += bud_position
+        # weight_softbody modifies values below 0.5, max is 100
+        values = np.random.rand(len_nodes) + 0.5
+
+        pts.foreach_set('radius', radii.ravel())
+        pts.foreach_set('co', nodes.ravel())
+        pts.foreach_set('value', values.ravel())
+
+        spline.use_endpoint_u = True
+        return spline
+
+    def create_random_splines_within_curve(n_splines=100, n_nodes_per_spline=100, name='Curve > hair'):
+        curve_data = bpy.data.curves.new(name=name, type='CURVE')
+        # Tell Cycles to render all splines within this curve as hair 
+        curve_data.cycles_curves.render_as_hair = True
+        curve_data.dimensions = '3D'
+        curve = bpy.data.objects.new(name=name, object_data=curve_data)
+
+        # Alternate creation of bezier vs nurbs splines
+        bezier_or_not = np.random.rand(n_splines)
+        for spline_id in range(n_splines):
+            len_nodes = int(n_nodes_per_spline + random.random() * 10)
+            s_type = 'NURBS' if bezier_or_not[spline_id] < 0.5 else 'BEZIER'
+            # curve_data equivalent to accessing curve.data
+            spline = create_spline(curve_data, s_type, len_nodes)
+
+        # Used to be bpy.data.scenes['Scene'].objects.link(curve)
+        # Collection 1 or any existing collection on scene
+        bpy.data.collections['Collection 1'].objects.link(curve)
+        return curve
+
+    # Main call to draw all the splines in a single curve object
+    curve = create_random_splines_within_curve(1000, 100)
 
 ## Issues
-None found at the moment. Don't hesitate to report any issue you see.
+One minor issue with Bezier splines: the rendered hair will be cut slightly before the last control point. Increasing the spline resolution reduces the issue. Don't hesitate to report any issue you see.

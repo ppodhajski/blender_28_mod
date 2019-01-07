@@ -2986,6 +2986,7 @@ void node_hair_info(out float is_strand, out float intercept, out float thicknes
 	curve_index = 0.0;
 	curve_count = 0.0;
     curve_length = 0.0;
+    key = 0.0;
 	value = 0.0;
 #endif
 }

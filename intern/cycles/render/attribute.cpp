@@ -275,6 +275,8 @@ const char *Attribute::standard_name(AttributeStandard std)
             return "curve_count";
         case ATTR_STD_CURVE_LENGTH:
             return "curve_length";
+		case ATTR_STD_CURVE_KEY:
+			return "curve_key";
 		case ATTR_STD_CURVE_VALUE:
 			return "curve_value";
 		case ATTR_STD_PTEX_FACE_ID:
@@ -480,6 +482,10 @@ Attribute *AttributeSet::add(AttributeStandard std, ustring name)
 			case ATTR_STD_CURVE_LENGTH:
 				attr = add(name, TypeDesc::TypeFloat, ATTR_ELEMENT_CURVE);
 				break;
+            case ATTR_STD_CURVE_KEY:
+                // Watch out, ATTR_STD_CURVE_KEY is for custom data while ATTR_ELEMENT_CURVE_KEY describes the point data
+                attr = add(name, TypeDesc::TypeFloat, ATTR_ELEMENT_CURVE_KEY);
+                break;
             case ATTR_STD_CURVE_VALUE:
                 attr = add(name, TypeDesc::TypeFloat, ATTR_ELEMENT_CURVE_KEY);
                 break;

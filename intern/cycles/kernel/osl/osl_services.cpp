@@ -111,6 +111,7 @@ ustring OSLRenderServices::u_curve_random("geom:curve_random");
 ustring OSLRenderServices::u_curve_index("geom:curve_index");
 ustring OSLRenderServices::u_curve_count("geom:curve_count");
 ustring OSLRenderServices::u_curve_length("geom:curve_length");
+ustring OSLRenderServices::u_curve_key("geom:curve_key");
 ustring OSLRenderServices::u_curve_value("geom:curve_value");
 ustring OSLRenderServices::u_path_ray_length("path:ray_length");
 ustring OSLRenderServices::u_path_ray_depth("path:ray_depth");

@@ -87,6 +87,8 @@ public:
 	array<float3> curvekey_co;
 	array<float> curvekey_time;
     array<float> curvekey_radius;
+    // Custom key-value data pair for each point
+    array<float> curvekey_key;
     array<float> curvekey_value;
 };
 

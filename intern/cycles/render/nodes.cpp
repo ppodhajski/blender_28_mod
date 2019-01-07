@@ -3961,6 +3961,7 @@ NODE_DEFINE(HairInfoNode)
 	SOCKET_OUT_FLOAT(curve_index, "Spline Index");
 	SOCKET_OUT_FLOAT(curve_count, "Splines Count");
 	SOCKET_OUT_FLOAT(curve_length, "Spline Length");
+	SOCKET_OUT_FLOAT(key, "Key");
 	SOCKET_OUT_FLOAT(value, "Value");
 
 	return type;
@@ -3990,6 +3991,9 @@ void HairInfoNode::attributes(Shader *shader, AttributeRequestSet *attributes)
 
 		if(!output("Spline Length")->links.empty())
 			attributes->add(ATTR_STD_CURVE_LENGTH);
+
+		if(!output("Key")->links.empty())
+			attributes->add(ATTR_STD_CURVE_KEY);
 
 		if(!output("Value")->links.empty())
 			attributes->add(ATTR_STD_CURVE_VALUE);
@@ -4051,6 +4055,12 @@ void HairInfoNode::compile(SVMCompiler& compiler)
 		int attr = compiler.attribute(ATTR_STD_CURVE_LENGTH);
 		compiler.add_node(NODE_ATTR, attr, compiler.stack_assign(out), NODE_ATTR_FLOAT);
 	}
+
+	out = output("Key");
+	if(!out->links.empty()) {
+		int attr = compiler.attribute(ATTR_STD_CURVE_KEY);
+		compiler.add_node(NODE_ATTR, attr, compiler.stack_assign(out), NODE_ATTR_FLOAT);
+    }
 
 	out = output("Value");
 	if(!out->links.empty()) {
