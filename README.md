@@ -16,12 +16,18 @@ In the Hair Info node of Cycles, the Value slot is now added. It allows you to p
 
 ## How to use it?
 You need to compile Blender with these sources. You need to have git installed on your system or skip step 1 and download sources from github.
+Make sure you have python3.7+ installed as this is required by Blender 2.8.
+
 In your console run the following commands (valid for Linux/MacOS/Windows):
 1. `git clone git://github.com/nantille/blender_28_mod`
 2. `cd blender_28_mod`
-3. `make`
+[Only if you have a Python issue]: 2b. `alias python3="the_path_to_a_python_version_you_want"`
+3. `make update`
+4. `make`
 
 If everything compiles fine, you will have a new Blender executable in relative path `../build_[platform]/bin/`
+
+If you have a Cmake Error mentioning `Python executable missing`, follow step 2b.
 
 If you would like to compile Blender with the latest sources published by Blender Institute,
 you can try rebasing with the following command:
@@ -99,6 +105,9 @@ This example creates 1000 (n) splines within one curve object and sets random ra
         pts.foreach_set('value', values.ravel())
 
         spline.use_endpoint_u = True
+        # The higher the value, the smoother the hair gets
+        # Default value is 12, too high for most uses
+        spline.resolution_u = 6
         return spline
 
     def create_random_splines_within_curve(n_splines=100, n_nodes_per_spline=100, name='Curve > hair'):
@@ -125,4 +134,6 @@ This example creates 1000 (n) splines within one curve object and sets random ra
     curve = create_random_splines_within_curve(1000, 100)
 
 ## Issues
-One minor issue with Bezier splines: the rendered hair will be cut slightly before the last control point. Increasing the spline resolution reduces the issue. Don't hesitate to report any issue you see.
+One issue: if you go in Preview mode and assign a material to a curve that had none, Blender crashes. 
+Solution: you have to assign the material before Preview mode.
+Don't hesitate to report any issue you see.

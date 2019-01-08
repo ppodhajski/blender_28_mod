@@ -120,10 +120,6 @@ static void forward_diff_bezier(const float3& q0,
                                 int resolution,
                                 vector<float3> *points)
 {
-    // Somehow this code fails at making bezier splines that go all the way
-    // to the last point, so the rendered curve looks truncated somewhere
-    // between the last point and its parent. Changing the resolution only
-    // makes it slightly less truncated.
 	const float resolution2 = resolution*resolution;
 	const float resolution3 = resolution2*resolution;
 	const float3 rt0 = q0;
@@ -229,8 +225,6 @@ static bool ObtainCurveData(Mesh *mesh,
 				const float3 q2 = get_float3(b_next_point.handle_left());
 				const float3 q3 = get_float3(b_next_point.co());
 				forward_diff_bezier(q0, q1, q2, q3, resolution, &points);
-                // Compensation for last point
-                points[resolution+1] = q3;
                 
                 radii.resize(resolution + 1);
                 keys.resize(resolution + 1);
@@ -286,7 +280,7 @@ static bool ObtainCurveData(Mesh *mesh,
                 }
 			}
             
-			for (int diff_point = 0; diff_point < resolution; ++diff_point) {
+			for (int diff_point = 0; diff_point <= resolution; ++diff_point) {
 				const float3 co = points[diff_point];
 
 				// Take the linearly interpolated values
