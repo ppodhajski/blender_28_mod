@@ -115,7 +115,8 @@ def create_random_splines_within_curve(n_splines=100, n_nodes_per_spline=100, na
 
     # Used to be bpy.data.scenes['Scene'].objects.link(curve)
     # Collection 1 or any existing collection on scene
-    bpy.data.collections['Collection 1'].objects.link(curve)
+    # bpy.data.collections['Collection 1'].objects.link(curve)
+    bpy.context.scene.collection.objects.link(curve)
     return curve
 
 # Main call to draw all the splines in a single curve object

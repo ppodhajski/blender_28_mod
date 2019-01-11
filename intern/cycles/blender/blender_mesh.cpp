@@ -1072,15 +1072,6 @@ Mesh *BlenderSync::sync_mesh(BL::Depsgraph& b_depsgraph,
 
 		/* For some reason, meshes do not need this... */
 		bool need_undeformed = mesh->need_attribute(scene, ATTR_STD_GENERATED);
-
-		//mesh->subdivision_type = object_subdivision_type(b_ob, preview, experimental);
-
-		/* Disable adaptive subdivision while baking as the baking system
-		 * currently doesnt support the topology and will crash.
-		 */
-		if(scene->bake_manager->get_baking()) {
-			mesh->subdivision_type = Mesh::SUBDIVISION_NONE;
-		}
         
         BL::Mesh b_mesh(PointerRNA_NULL);
 

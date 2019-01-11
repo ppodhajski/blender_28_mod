@@ -130,7 +130,8 @@ static void forward_diff_bezier(const float3& q0,
 	float3 a1 = rt1 + rt2 + rt3;
 	float3 a2 = 2 * rt2 + 6 * rt3;
 	float3 a3 = 6 * rt3;
-	points->resize(resolution + 1);
+    //if (points->capacity() < resolution + 1)
+	   //points->resize(resolution + 1);
 	for (int i = 0; i <= resolution; ++i) {
 		(*points)[i] = a0;
 		a0 += a1;
@@ -140,9 +141,16 @@ static void forward_diff_bezier(const float3& q0,
 }
 
 /* 
-[Nicolas Antille] Transition between Blender and Cycles. This is the 
-main function for treating splines and curve data. Be warned about variable names: 
+This is the transition part. We get data from Blender and prepare it for Cycles.
+Here, we handle splines and curve data. Be warned about variable names: 
 in C/C++ sources of Cycles, "curve" describes both curve objects and splines (!).
+Also, custom data was added to SplinePoint and BezierSplinePoint, namely "key" and "value",
+two 4 byte float that can store custom data that will be reflected and available in
+HairInfo node as HairInfo.Key and HairInfo.Value.
+Some of the features that are supported here:
+- per spline materials using material_index attribute
+- proper nurbs and bezier interpolations
+- resolution == 1 makes a copy of raw data without interp, which is faster
 */
 static bool ObtainCurveData(Mesh *mesh,
                             BL::Mesh *b_mesh,
@@ -150,74 +158,123 @@ static bool ObtainCurveData(Mesh *mesh,
                             ParticleCurveData *CData,
                             bool background)
 {
-	if(!(mesh && b_mesh && b_ob && CData)) {
+	if(!(mesh && b_mesh && b_ob && CData))
 		return false;
-	}
+        
 	BL::ID b_ob_data = b_ob->data();
-	if(!b_ob_data || !b_ob_data.is_a(&RNA_Curve)) {
+	if(!b_ob_data || !b_ob_data.is_a(&RNA_Curve))
 		return false;
-	}
 
 	BL::Curve b_curve(b_ob->data());
 	const int num_splines = b_curve.splines.length();
-	if(num_splines == 0) {
+	if(num_splines == 0)
 		return false;
-	}
-
-	CData->psys_firstcurve.push_back_slow(0);
-	CData->psys_curvenum.push_back_slow(num_splines);
     
 	bool render_as_hair = false;
-    // [Nicolas Antille] : cycles_curves is here a property of the Curve data 
 	if(!b_ob_data || b_ob_data.is_a(&RNA_Curve)) {
+        // "cycles_curves" is here a property of the Curve data 
 		PointerRNA cycles_curves = RNA_pointer_get(&b_ob_data.ptr, "cycles_curves");
 		render_as_hair = get_boolean(cycles_curves, "render_as_hair");
 	}
+    
+	if(!render_as_hair)
+        return false;
+
+	CData->psys_firstcurve.push_back_slow(0);
+	CData->psys_curvenum.push_back_slow(num_splines);
     CData->render_as_hair.push_back_slow(render_as_hair);
     
-	if(!render_as_hair) {
-        return false;    
-    }
-    
+    CData->curve_keynum.reserve(num_splines);
     CData->curve_shader.reserve(num_splines);
     CData->curve_length.reserve(num_splines);
     CData->curve_firstkey.reserve(num_splines);
     
 	int keyno = 0;
-	vector<float3> points;
-	vector<float> keys;
-	vector<float> values;
-	vector<float> radii;
-
     // Variables refer to splines here as this is really what you have in the UI
     // For some reason in Cycles code, splines are curves and curves are "psys" or particle systems.
 	for(int spline = 0; spline < num_splines; ++spline) {
 		BL::Spline b_spline = b_curve.splines[spline];
-		const bool is_bezier = (b_spline.type() == BL::Spline::type_BEZIER);
-		const int num_points = is_bezier
-		        ? b_spline.bezier_points.length()
-		        : b_spline.points.length();
-		int resolution = background
-		        ? b_curve.render_resolution_u()
-		        : b_spline.resolution_u();
-		if(resolution == 0) {
+		
+        const bool is_bezier = (b_spline.type() == BL::Spline::type_BEZIER);
+		const int num_points = is_bezier ? b_spline.bezier_points.length() : b_spline.points.length();
+		int resolution = background ? b_curve.render_resolution_u() : b_spline.resolution_u();
+		if(resolution == 0)
 			resolution = b_curve.resolution_u();
-		}
-		int keynum = 0;
-		CData->curve_firstkey.push_back_slow(keyno);
+        if(resolution == 0)
+            resolution = 1;
         
+		CData->curve_firstkey.push_back_slow(keyno);
+        const int shader = clamp(b_spline.material_index(), 0, mesh->used_shaders.size()-1);
+        CData->curve_shader.push_back_slow(shader);
+        
+        // If resolution == 1, these reserve() are still valid.
+        // Older code used resize() + push_back_slow(), now it's reserve() + push_back_slow()
+        // which should be slightly faster.
+        const int reserve_size = num_points * resolution;
+        CData->curvekey_co.reserve(CData->curvekey_co.capacity() + reserve_size);
+        CData->curvekey_radius.reserve(CData->curvekey_radius.capacity() + reserve_size);
+        CData->curvekey_time.reserve(CData->curvekey_time.capacity() + reserve_size);
+        CData->curvekey_key.reserve(CData->curvekey_key.capacity() + reserve_size);
+        CData->curvekey_value.reserve(CData->curvekey_value.capacity() + reserve_size);
+        
+		int keynum = 0;
 		float curve_length = 0.0f;
 		float3 prev_co;
         
-        CData->curvekey_co.reserve(CData->curvekey_co.size() + num_points);
-        CData->curvekey_radius.reserve(CData->curvekey_radius.size() + num_points);
-        CData->curvekey_time.reserve(CData->curvekey_time.size() + num_points);
-        CData->curvekey_key.reserve(CData->curvekey_key.size() + num_points);
-        CData->curvekey_value.reserve(CData->curvekey_value.size() + num_points);
+        // When resolution is 1, no interpolation is performed, we directly copy the given data
+        if (resolution == 1){
+            for(int point = 0; point <= num_points-1; ++point) {
+                if(is_bezier) {
+                    BL::BezierSplinePoint b_curr_point = b_spline.bezier_points[point];
+                
+                    const float3 co = get_float3(b_curr_point.co());
+                    if(point != 0) {
+                        const float step_length = len(co - prev_co);
+                        if(step_length == 0.0f) {
+                            continue;
+                        }
+                        curve_length += step_length;
+                    }
+                    CData->curvekey_co.push_back_slow(co);
+                    CData->curvekey_radius.push_back_slow(b_curr_point.radius());
+                    CData->curvekey_time.push_back_slow(curve_length);
+                    CData->curvekey_key.push_back_slow(b_curr_point.key());
+                    CData->curvekey_value.push_back_slow(b_curr_point.value());
+                    prev_co = co;
+                }
+                else{
+				    BL::SplinePoint b_curr_point = b_spline.points[point];
 
+                    // Forced to duplicate code here, there's no abstract class for BezierSplinePoint and SplinePoint
+                    const float3 co = get_float3(b_curr_point.co());
+                    if(point != 0) {
+                        const float step_length = len(co - prev_co);
+                        if(step_length == 0.0f) {
+                            continue;
+                        }
+                        curve_length += step_length;
+                    }
+                    CData->curvekey_co.push_back_slow(co);
+                    CData->curvekey_radius.push_back_slow(b_curr_point.radius());
+                    CData->curvekey_time.push_back_slow(curve_length);
+                    CData->curvekey_key.push_back_slow(b_curr_point.key());
+                    CData->curvekey_value.push_back_slow(b_curr_point.value());
+                    prev_co = co;
+                }
+            }
+            
+            CData->curve_keynum.push_back_slow(num_points);
+            CData->curve_length.push_back_slow(curve_length);
+            continue;
+        }
+        
+        // Interpolation of given splines points when resolution > 1
         for(int point = 0; point < num_points - 1; ++point) {
+            vector<float3> points(resolution + 1);
+            vector<float> radii(resolution + 1);
+            vector<float> custom_data_keys(resolution + 1);
+            vector<float> custom_data_values(resolution + 1);
 			if(is_bezier) {
-				/* TODO(sergey): We can cache previous point and its handle. */
 				BL::BezierSplinePoint b_curr_point = b_spline.bezier_points[point];
 				BL::BezierSplinePoint b_next_point = b_spline.bezier_points[point + 1];
 				const float3 q0 = get_float3(b_curr_point.co());
@@ -226,27 +283,18 @@ static bool ObtainCurveData(Mesh *mesh,
 				const float3 q3 = get_float3(b_next_point.co());
 				forward_diff_bezier(q0, q1, q2, q3, resolution, &points);
                 
-                radii.resize(resolution + 1);
-                keys.resize(resolution + 1);
-                values.resize(resolution + 1);
-                // Todo: check if linear interp is fine or if it should also be evaluated with a bezier curve
-                for (int i = 0; i <= resolution; ++i)
+                // Data could be evaluated with a bezier spline. Currently using linear interpolation.
+                for (int i = 0; i <= resolution; ++i){
                     radii[i] = b_curr_point.radius() + (b_next_point.radius() - b_curr_point.radius()) / resolution * i;
-                for (int i = 0; i <= resolution; ++i)
-                    keys[i] = b_curr_point.key() + (b_next_point.key() - b_curr_point.key()) / resolution * i;
-                for (int i = 0; i <= resolution; ++i)
-                    values[i] = b_curr_point.value() + (b_next_point.value() - b_curr_point.value()) / resolution * i;
+                    custom_data_keys[i] = b_curr_point.key() + (b_next_point.key() - b_curr_point.key()) / resolution * i;
+                    custom_data_values[i] = b_curr_point.value() + (b_next_point.value() - b_curr_point.value()) / resolution * i;
+                }
 			}
 			else {
 				BL::SplinePoint b_curr_point = b_spline.points[point];
 				BL::SplinePoint b_next_point = b_spline.points[point + 1];
                 
-                points.resize(resolution + 1);
-                radii.resize(resolution + 1);
-                keys.resize(resolution + 1);
-                values.resize(resolution + 1);
                 for (int i = 0; i <= resolution; ++i) {
-                    
                     float3 ckey_loc1 = get_float3(b_curr_point.co());
                     float3 ckey_loc2 = ckey_loc1;
                     float3 ckey_loc3 = get_float3(b_next_point.co());
@@ -264,7 +312,7 @@ static bool ObtainCurveData(Mesh *mesh,
                     
                     float weights[4];
                     interp_weights((float)i / (float)resolution, weights);
-                    
+
                     float3 interp_point;
                     curveinterp_v3_v3v3v3v3(&interp_point, 
                                             &ckey_loc1, 
@@ -273,22 +321,22 @@ static bool ObtainCurveData(Mesh *mesh,
                                             &ckey_loc4,
                                             weights);
                     points[i] = interp_point;
-                    // Todo: check if linear interp is fine or if it should also be evaluated with a nurbs
+
+                    // Data could be evaluated with a nurbs. Currently using linear interpolation.
                     radii[i] = b_curr_point.radius() + (b_next_point.radius() - b_curr_point.radius()) / resolution * i;
-                    keys[i] = b_curr_point.key() + (b_next_point.key() - b_curr_point.key()) / resolution * i;
-                    values[i] = b_curr_point.value() + (b_next_point.value() - b_curr_point.value()) / resolution * i;
+                    custom_data_keys[i] = b_curr_point.key() + (b_next_point.key() - b_curr_point.key()) / resolution * i;
+                    custom_data_values[i] = b_curr_point.value() + (b_next_point.value() - b_curr_point.value()) / resolution * i;
                 }
 			}
             
-			for (int diff_point = 0; diff_point <= resolution; ++diff_point) {
-				const float3 co = points[diff_point];
+            // Store the interpolated values
+			for (int interp_i = 0; interp_i <= resolution; ++interp_i) {
+				const float3 co = points[interp_i];
+				const float radius = radii[interp_i];
+				const float custom_data_key = custom_data_keys[interp_i];
+				const float custom_data_value = custom_data_values[interp_i];
 
-				// Take the linearly interpolated values
-				const float radius = radii[diff_point];
-				const float key = keys[diff_point];
-				const float value = values[diff_point];
-
-				if(!(point == 0 && diff_point == 0)) {
+				if(!(point == 0 && interp_i == 0)) {
 					const float step_length = len(co - prev_co);
 					if(step_length == 0.0f) {
 						continue;
@@ -298,17 +346,14 @@ static bool ObtainCurveData(Mesh *mesh,
 				CData->curvekey_co.push_back_slow(co);
 				CData->curvekey_radius.push_back_slow(radius);
 				CData->curvekey_time.push_back_slow(curve_length);
-                CData->curvekey_key.push_back_slow(key);
-                CData->curvekey_value.push_back_slow(value);
+                CData->curvekey_key.push_back_slow(custom_data_key);
+                CData->curvekey_value.push_back_slow(custom_data_value);
 
 				prev_co = co;
 				++keynum;
 			}
 		}
 		keyno += keynum;
-        
-        int shader = clamp(b_spline.material_index(), 0, mesh->used_shaders.size()-1);
-        CData->curve_shader.push_back_slow(shader);
         
 		CData->curve_keynum.push_back_slow(keynum);
 		CData->curve_length.push_back_slow(curve_length);
@@ -397,7 +442,8 @@ static bool ObtainCacheParticleData(Mesh *mesh,
 						}
 						CData->curvekey_co.push_back_slow(cKey);
 						CData->curvekey_time.push_back_slow(curve_length);
-                        // [Nicolas Antille] Todo: see if hair from a p-system could be given values
+                        // [Nicolas Antille] Todo: see if hair from a p-system could be given key-value data
+                        CData->curvekey_key.push_back_slow(0.0);
                         CData->curvekey_value.push_back_slow(0.0);
 						pcKey = cKey;
 						keynum++;
@@ -586,7 +632,7 @@ static void ExportCurveTrianglePlanes(Mesh *mesh, ParticleCurveData *CData,
                 
             int shader;
             if (render_as_hair) {
-                // "curve" variable is actually referring to a spline here
+                // "curve" naming is referring to a spline here
                 shader = CData->curve_shader[curve];
             }
             else {
